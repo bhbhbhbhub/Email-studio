@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0b10">
+  <title>Email Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div id="toast-root"></div>
+  <div id="modal-root"></div>
+
+  <section id="auth-screen" class="auth-screen">
+    <div class="auth-art">
+      <a class="brand"><span class="brand-mark">E</span><span>Email Studio</span></a>
+      <div class="auth-copy">
+        <div class="eyebrow"><span class="live-dot"></span> INTERNAL OUTREACH OS</div>
+        <h1>Every introduction,<br><span>beautifully personal.</span></h1>
+        <p>Import leads, tailor messages, and send from your own inbox—all in one focused workspace.</p>
+        <div class="mini-window">
+          <div class="mini-top"><i></i><i></i><i></i><span>Campaign preview</span></div>
+          <div class="mini-body">
+            <div class="mini-avatar">AC</div>
+            <div><small>TO: ALEX@NORTHSTAR.IO</small><strong>Growing Northstar's partner network</strong><p>Hi Alex, I loved what Northstar is building in fintech...</p></div>
+            <b>Ready</b>
+          </div>
+        </div>
+      </div>
+      <footer>Private workspace · Secure OAuth · Your data stays yours</footer>
+    </div>
+    <div class="auth-panel">
+      <form id="login-form" class="auth-form">
+        <div class="mobile-brand"><span class="brand-mark">E</span>Email Studio</div>
+        <div><h2>Welcome back</h2><p>Sign in to continue to your workspace.</p></div>
+        <label>Work email<input name="email" type="email" placeholder="you@company.com" required></label>
+        <label>Password<div class="password-wrap"><input name="password" type="password" placeholder="••••••••" required><button type="button" class="icon-btn toggle-password">◉</button></div></label>
+        <div class="form-between"><label class="check"><input type="checkbox"> Remember me</label><button type="button" class="text-button" data-auth="forgot">Forgot password?</button></div>
+        <button class="button primary wide" type="submit">Sign in <span>→</span></button>
+        <p class="auth-switch">New to Email Studio? <button type="button" class="text-button" data-auth="register">Create an account</button></p>
+      </form>
+      <form id="register-form" class="auth-form hidden">
+        <div><h2>Create your workspace</h2><p>Set up your internal outreach hub.</p></div>
+        <label>Full name<input name="name" placeholder="Jordan Lee" required></label>
+        <label>Work email<input name="email" type="email" placeholder="you@company.com" required></label>
+        <label>Password<input name="password" type="password" minlength="8" placeholder="At least 8 characters" required></label>
+        <button class="button primary wide">Create account <span>→</span></button>
+        <p class="auth-switch">Already have an account? <button type="button" class="text-button" data-auth="login">Sign in</button></p>
+      </form>
+      <form id="forgot-form" class="auth-form hidden">
+        <div><h2>Reset password</h2><p>Enter your email for recovery instructions.</p></div>
+        <label>Work email<input name="email" type="email" required></label>
+        <button class="button primary wide">Request reset</button>
+        <button type="button" class="button ghost wide" data-auth="login">Back to sign in</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell hidden">
+    <aside class="sidebar">
+      <a class="brand"><span class="brand-mark">E</span><span>Email Studio</span></a>
+      <nav>
+        <small>WORKSPACE</small>
+        <a href="#dashboard" data-page="dashboard"><span>⌂</span>Overview</a>
+        <a href="#leads" data-page="leads"><span>♧</span>Leads <b id="nav-lead-count">0</b></a>
+        <a href="#industries" data-page="industries"><span>◇</span>Industries</a>
+        <a href="#templates" data-page="templates"><span>▤</span>Templates</a>
+        <a href="#generate" data-page="generate"><span>✦</span>Email Composer</a>
+        <small>MANAGE</small>
+        <a href="#activity" data-page="activity"><span>◷</span>Activity</a>
+        <a href="#settings" data-page="settings"><span>⚙</span>Settings</a>
+      </nav>
+      <div class="sidebar-account">
+        <div class="avatar" id="side-avatar">ES</div>
+        <div><strong id="side-name">Email Studio</strong><small id="side-email">team@company.com</small></div>
+        <button class="icon-btn" id="logout-btn" title="Log out">↪</button>
+      </div>
+    </aside>
+    <main>
+      <header class="topbar">
+        <button class="icon-btn menu-button" id="menu-button">☰</button>
+        <div class="search-global"><span>⌕</span><input id="global-search" placeholder="Search leads, templates..."><kbd>⌘ K</kbd></div>
+        <div class="top-actions">
+          <button class="icon-btn" id="refresh-button" title="Refresh">↻</button>
+          <button class="account-pill" data-nav="settings"><span class="status-dot"></span><span id="top-account">No email connected</span></button>
+        </div>
+      </header>
+      <div id="page" class="page"></div>
+    </main>
+  </div>
+  <script src="/js/app.js"></script>
+</body>
+</html>
