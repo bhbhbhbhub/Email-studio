@@ -274,8 +274,10 @@ app.get('/oauth/microsoft/callback', async (req, res) => {
 });
 app.delete('/api/accounts/:id', (req, res) => { db.prepare("UPDATE connected_accounts SET status='disconnected',access_token=NULL WHERE id=? AND user_id=?").run(req.params.id, req.user.id); res.json({ ok: true }); });
 
-app.use(express.static(path.join(__dirname, '..', 'frontend')));
-app.get('*', (_, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html')));
+app.use(express.static(path.join(__dirname, '..')));
+app.get('*', (_, res) => {
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
 app.listen(port, () => console.log(`Email Studio running at ${appUrl}`));
 
 module.exports = app;
