@@ -124,15 +124,98 @@ app.put('/api/leads/:id', (req, res) => {
 app.delete('/api/leads/:id', (req, res) => { db.prepare('DELETE FROM leads WHERE id=? AND user_id=?').run(req.params.id, req.user.id); res.json({ ok: true }); });
 
 function importRows(userId, rows) {
-  const industries = db.prepare('SELECT * FROM industries WHERE user_id=?').all(userId);
-  const findIndustry = name => industries.find(i => i.name.toLowerCase() === String(name || '').trim().toLowerCase())?.id || null;
-  const insert = db.prepare('INSERT INTO leads (user_id,company_name,website,email,industry_id,notes) VALUES (?,?,?,?,?,?)');
-  const tx = db.transaction(items => items.forEach(row => {
-    const normalized = Object.fromEntries(Object.entries(row).map(([k,v]) => [k.toLowerCase().replace(/[^a-z]/g,''), v]));
-    const email = normalized.email || normalized.emailaddress;
-    if (email) insert.run(userId, normalized.companyname || normalized.company || 'Unknown', normalized.website || '', email, findIndustry(normalized.industry), normalized.notes || '');
-  })); tx(rows); return rows.length;
+
+    const industries = db
+        .prepare("SELECT * FROM industries WHERE user_id=?")
+        .all(userId);
+
+    const findIndustry = (name) => {
+        const value = String(name || "").trim().toLowerCase();
+
+        return (
+            industries.find(
+                i => i.name.toLowerCase() === value
+            )?.id || null
+        );
+    };
+
+    const insert = db.prepare(`
+        INSERT INTO leads
+        (
+            user_id,
+            company_name,
+            website,
+            email,
+            industry_id,
+            notes
+        )
+        VALUES
+        (?, ?, ?, ?, ?, ?)
+    `);
+
+    const tx = db.transaction((items) => {
+
+        items.forEach((row) => {
+
+            const normalized = Object.fromEntries(
+
+                Object.entries(row).map(([key, value]) => [
+
+                    key
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]/g, ""),
+
+                    value
+
+                ])
+
+            );
+
+            const company =
+                normalized.businessname ||
+                normalized.companyname ||
+                normalized.company ||
+                "No data";
+
+            const website =
+                normalized.website ||
+                normalized.domain ||
+                "No data";
+
+            const email =
+                normalized.email ||
+                normalized.email2 ||
+                normalized.emailaddress ||
+                "No data";
+
+            const industry =
+                normalized.industry ||
+                normalized.industryname ||
+                "No data";
+
+            const notes =
+                normalized.notes ||
+                "";
+
+            insert.run(
+                userId,
+                company,
+                website,
+                email,
+                findIndustry(industry),
+                notes
+            );
+
+        });
+
+    });
+
+    tx(rows);
+
+    return rows.length;
 }
+
+
 async function excelRows(bufferOrPath, fromBuffer = false) {
   const workbook = new ExcelJS.Workbook();
   if (fromBuffer) await workbook.xlsx.load(bufferOrPath); else await workbook.xlsx.readFile(bufferOrPath);
@@ -257,20 +340,106 @@ app.get('/api/oauth/microsoft', (req, res) => {
   const p = new URLSearchParams({ client_id: process.env.MICROSOFT_CLIENT_ID, response_type: 'code', redirect_uri: `${appUrl}/oauth/microsoft/callback`, response_mode: 'query', scope: 'offline_access User.Read Mail.Send', state: sign({ id: req.user.id, email: req.user.email }) });
   res.json({ url: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?${p}` });
 });
-app.get('/oauth/microsoft/callback', async (req, res) => {
-  try {
-    const jwt = require('jsonwebtoken').verify(req.query.state, process.env.JWT_SECRET || 'development-only-change-me');
-    const tenant = process.env.MICROSOFT_TENANT || 'common';
-    const p = new URLSearchParams({ client_id: process.env.MICROSOFT_CLIENT_ID, client_secret: process.env.MICROSOFT_CLIENT_SECRET, code: req.query.code, redirect_uri: `${appUrl}/oauth/microsoft/callback`, grant_type: 'authorization_code', scope: 'offline_access User.Read Mail.Send' });
-    const token = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, { method: 'POST', headers: {'content-type':'application/x-www-form-urlencoded'}, body: p }).then(r => r.json());
-    if (!token.access_token) throw new Error();
-    const profile = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { authorization: `Bearer ${token.access_token}` } }).then(r => r.json());
-    const email = profile.mail || profile.userPrincipalName;
-    db.prepare(`INSERT INTO connected_accounts (user_id,provider,email,access_token,refresh_token,expires_at,status) VALUES (?,?,?,?,?,?, 'connected')
-      ON CONFLICT(user_id,provider) DO UPDATE SET email=excluded.email,access_token=excluded.access_token,refresh_token=excluded.refresh_token,expires_at=excluded.expires_at,status='connected'`)
-      .run(jwt.id, 'microsoft', email, token.access_token, token.refresh_token, Date.now() + token.expires_in * 1000);
-    log(jwt.id, 'account', `Connected Outlook ${email}`); res.redirect('/#settings?connected=1');
-  } catch { res.redirect('/#settings?oauthError=1'); }
+app.get("/oauth/microsoft/callback", async (req, res) => {
+    try {
+        const jwt = require("jsonwebtoken").verify(
+            req.query.state,
+            process.env.JWT_SECRET || "development-only-change-me"
+        );
+
+        const tenant = process.env.MICROSOFT_TENANT || "common";
+
+        const params = new URLSearchParams({
+            client_id: process.env.MICROSOFT_CLIENT_ID,
+            client_secret: process.env.MICROSOFT_CLIENT_SECRET,
+            code: req.query.code,
+            redirect_uri: `${appUrl}/oauth/microsoft/callback`,
+            grant_type: "authorization_code",
+            scope: "offline_access User.Read Mail.Send"
+        });
+
+        const tokenResponse = await fetch(
+            `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: params
+            }
+        );
+
+        const token = await tokenResponse.json();
+
+        if (!token.access_token) {
+            console.error("Microsoft OAuth Token Error:", token);
+
+            return res.redirect("/#settings?oauthError=1");
+        }
+
+        const profileResponse = await fetch(
+            "https://graph.microsoft.com/v1.0/me",
+            {
+                headers: {
+                    Authorization: `Bearer ${token.access_token}`
+                }
+            }
+        );
+
+        const profile = await profileResponse.json();
+
+        const email =
+            profile.mail ||
+            profile.userPrincipalName ||
+            "Unknown";
+
+        db.prepare(`
+            INSERT INTO connected_accounts
+            (
+                user_id,
+                provider,
+                email,
+                access_token,
+                refresh_token,
+                expires_at,
+                status
+            )
+            VALUES
+            (
+                ?, ?, ?, ?, ?, ?, 'connected'
+            )
+
+            ON CONFLICT(user_id, provider)
+
+            DO UPDATE SET
+                email = excluded.email,
+                access_token = excluded.access_token,
+                refresh_token = excluded.refresh_token,
+                expires_at = excluded.expires_at,
+                status = 'connected'
+        `).run(
+            jwt.id,
+            "microsoft",
+            email,
+            token.access_token,
+            token.refresh_token || null,
+            Date.now() + (token.expires_in || 3600) * 1000
+        );
+
+        log(
+            jwt.id,
+            "account",
+            `Connected Outlook ${email}`
+        );
+
+        return res.redirect("/#settings?connected=1");
+
+    } catch (error) {
+
+        console.error("Microsoft OAuth Callback Error:", error);
+
+        return res.redirect("/#settings?oauthError=1");
+    }
 });
 app.delete('/api/accounts/:id', (req, res) => { db.prepare("UPDATE connected_accounts SET status='disconnected',access_token=NULL WHERE id=? AND user_id=?").run(req.params.id, req.user.id); res.json({ ok: true }); });
 
