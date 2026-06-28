@@ -215,25 +215,88 @@ function importRows(userId, rows) {
     return rows.length;
 }
 
-
 async function excelRows(bufferOrPath, fromBuffer = false) {
-  const workbook = new ExcelJS.Workbook();
-  if (fromBuffer) await workbook.xlsx.load(bufferOrPath); else await workbook.xlsx.readFile(bufferOrPath);
-  const sheet = workbook.worksheets[0];
-  if (!sheet || sheet.rowCount < 1) return [];
-  const headers = sheet.getRow(1).values.slice(1).map(String);
-  const rows = [];
-  sheet.eachRow((row, index) => {
-    if (index === 1) return;
-    const item = {};
-    headers.forEach((header, i) => {
-      const cell = row.getCell(i + 1).value;
-      item[header] = cell?.text || cell?.result || cell || '';
+
+    const workbook = new ExcelJS.Workbook();
+
+    if (fromBuffer) {
+        await workbook.xlsx.load(bufferOrPath);
+    } else {
+        await workbook.xlsx.readFile(bufferOrPath);
+    }
+
+    const sheet = workbook.worksheets[0];
+
+    if (!sheet || sheet.rowCount < 2) {
+        return [];
+    }
+
+    // Read header row
+    const headers = sheet.getRow(1).values
+        .slice(1)
+        .map(header => String(header || "").trim());
+
+    console.log("==================================");
+    console.log("Excel Headers:");
+    console.log(headers);
+    console.log("==================================");
+
+    const rows = [];
+
+    sheet.eachRow((row, index) => {
+
+        if (index === 1) return;
+
+        const item = {};
+
+        let hasData = false;
+
+        headers.forEach((header, i) => {
+
+            let value = row.getCell(i + 1).value;
+
+            if (value && typeof value === "object") {
+
+                if (value.text) {
+                    value = value.text;
+                } else if (value.result) {
+                    value = value.result;
+                } else if (value.richText) {
+                    value = value.richText
+                        .map(t => t.text)
+                        .join("");
+                } else {
+                    value = "";
+                }
+
+            }
+
+            value = value ?? "";
+
+            if (String(value).trim() !== "") {
+                hasData = true;
+            }
+
+            item[header] = String(value).trim();
+
+        });
+
+        // Ignore completely blank rows
+        if (hasData) {
+            rows.push(item);
+        }
+
     });
-    rows.push(item);
-  });
-  return rows;
+
+    console.log("First Imported Row:");
+    console.log(rows[0]);
+
+    console.log("Total Imported Rows:", rows.length);
+
+    return rows;
+
 }
+
 app.post('/api/import/file', upload.single('file'), async (req, res) => {
   try {
     const ext = path.extname(req.file.originalname).toLowerCase();
